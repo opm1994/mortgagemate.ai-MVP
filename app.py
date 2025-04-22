@@ -123,7 +123,6 @@ def generate_underwriting_summary(file_data):
     filename = "underwriting_summary.pdf"
     pdf.output(filename)
     return filename
-
 # === STREAMLIT UI ===
 st.set_page_config(page_title="MortgageMate AI", layout="centered")
 st.markdown("# 🏡 MortgageMate AI - Underwriting Automation")
@@ -181,7 +180,7 @@ if credit_file:
         st.success(f"✅ Beacon Score Extracted: {beacon}")
     if liabilities:
         total_monthly_debt = sum(liab["payment"] for liab in liabilities)
-        st.info(f"🧾 Liabilities Found: {len(liabilities)} with ${total_monthly_debt:,.2f} monthly obligations")
+        st.info(f"🧾 Liabilities Found: {len(liabilities)} with ${total_monthly_debt:,.2f} in monthly obligations")
 
 # === CALCULATIONS ===
 gds, tds = calculate_gds_tds(extracted_income or 0, mortgage_amount * 0.006, property_tax, heat, lease_rent, total_monthly_debt)
