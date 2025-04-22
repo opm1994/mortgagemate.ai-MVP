@@ -112,17 +112,91 @@ def calculate_ltv(purchase_price, mortgage_amount):
     ltv = (mortgage_amount / purchase_price) * 100
     return round(ltv, 2)
 
-def generate_underwriting_summary(file_data):
+def generate_filogix_style_pdf(data):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="MortgageMate AI - Underwriting Summary", ln=True, align='C')
-    pdf.ln(10)
-    for key, value in file_data.items():
-        pdf.cell(200, 10, txt=f"{key}: {value}", ln=True)
-    filename = "underwriting_summary.pdf"
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(200, 10, txt="MortgageMate AI - Full Mortgage Application Summary", ln=True, align='C')
+    pdf.set_font("Arial", '', 11)
+    pdf.ln(5)
+
+    # Agent Info
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="1. Agent Information", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Broker: {data.get('broker_name', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"Agent Name: {data.get('agent_name', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"License Number: {data.get('license_number', 'N/A')}", ln=True)
+    pdf.ln(5)
+
+    # Applicant Info
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="2. Applicant Information", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Name: {data.get('applicant_name', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"Date of Birth: {data.get('dob', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"Marital Status: {data.get('marital_status', 'N/A')}", ln=True)
+    pdf.ln(5)
+
+    # Employment Info
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="3. Employment Information", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Employment Type: {data.get('employment_type', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"Annual Income: {data.get('annual_income', 'N/A')}", ln=True)
+    pdf.ln(5)
+
+    # Rent
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="4. Other Income", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Monthly Rent: {data.get('monthly_rent', 'N/A')}", ln=True)
+    pdf.ln(5)
+
+    # Liabilities
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="5. Liabilities", ln=True)
+    pdf.set_font("Arial", '', 11)
+    if data.get("liabilities"):
+        for liab in data["liabilities"]:
+            pdf.cell(200, 10, txt=f"{liab['type']}: Balance ${liab['balance']}, Payment ${liab['payment']}", ln=True)
+    else:
+        pdf.cell(200, 10, txt="No liabilities detected", ln=True)
+    pdf.ln(5)
+
+    # Assets & Down Payment
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="6. Assets & Down Payment", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Purchase Price: {data.get('purchase_price', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"Mortgage Amount: {data.get('mortgage_amount', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"LTV: {data.get('ltv', 'N/A')}", ln=True)
+    pdf.ln(5)
+
+    # Financing Request
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="7. Financing Request", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Beacon Score: {data.get('beacon_score', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"GDS: {data.get('gds', 'N/A')}%", ln=True)
+    pdf.cell(200, 10, txt=f"TDS: {data.get('tds', 'N/A')}%", ln=True)
+    pdf.ln(5)
+
+    # Property Profile
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="8. Property Details", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(200, 10, txt=f"Property Type: {data.get('property_type', 'N/A')}", ln=True)
+    pdf.cell(200, 10, txt=f"Occupancy: {data.get('occupancy', 'N/A')}", ln=True)
+
+    filename = "Filogix_Style_MortgageMate_Summary.pdf"
     pdf.output(filename)
     return filename
+
+def deploy_filogix_pdf_streamlit(data):
+    report_path = generate_filogix_style_pdf(data)
+    with open(report_path, "rb") as f:
+        st.download_button("⬇️ Download Filogix-Style Mortgage Summary", f, file_name=report_path, mime="application/pdf")
 # === STREAMLIT UI ===
 st.set_page_config(page_title="MortgageMate AI", layout="centered")
 st.markdown("# 🏡 MortgageMate AI - Underwriting Automation")
@@ -139,68 +213,68 @@ with st.expander("📂 Upload Lease Agreement"):
 with st.expander("📂 Upload Credit Report"):
     credit_file = st.file_uploader("Credit Report", type=["pdf"], key="credit")
 
-income_type = st.selectbox("Income Type", ["Salaried", "Self-Employed", "Commission"])
+# Manual inputs (only ones we can't extract)
+st.markdown("### Property & Deal Info")
+property_type = st.selectbox("Property Type", ["Detached", "Semi-Detached", "Condo", "Townhouse", "Other"])
+occupancy = st.selectbox("Occupancy", ["Owner-Occupied", "Rental", "Second Home"])
 purchase_price = st.number_input("Purchase Price ($)", min_value=0.0, value=500000.0)
 mortgage_amount = st.number_input("Mortgage Amount ($)", min_value=0.0, value=450000.0)
 property_tax = st.number_input("Monthly Property Tax ($)", min_value=0.0, value=300.0)
 heat = st.number_input("Monthly Heat ($)", min_value=0.0, value=100.0)
 
-# === INCOME EXTRACTION ===
-extracted_income = None
+# === EXTRACT DATA ===
+income = None
 if t4_file:
-    extracted_income = extract_t4_income(t4_file)
+    income = extract_t4_income(t4_file)
 elif noa_file:
-    extracted_income = extract_noa_line_15000(noa_file)
+    income = extract_noa_line_15000(noa_file)
 elif paystub_file:
-    extracted_income = extract_paystub_ytd(paystub_file)
+    income = extract_paystub_ytd(paystub_file)
 
-if extracted_income:
-    st.success(f"✅ Extracted Annual Income: ${extracted_income:,.2f}")
-else:
-    st.warning("⚠️ No income could be extracted from uploaded documents.")
-
-# === LEASE EXTRACTION ===
-lease_rent = 0
-lease_tenant = None
+lease_rent, lease_tenant = (0, "N/A")
 if lease_file:
     lease_rent, lease_tenant = extract_lease_rent(lease_file)
-    if lease_rent:
-        st.success(f"✅ Monthly Rent: ${lease_rent:,.2f}")
-    if lease_tenant:
-        st.info(f"Tenant: {lease_tenant}")
 
-# === CREDIT REPORT EXTRACTION ===
 beacon = 680
 liabilities = []
-total_monthly_debt = 0
 if credit_file:
     beacon_score, liabilities = extract_credit_score_and_liabilities(credit_file)
     if beacon_score:
         beacon = beacon_score
-        st.success(f"✅ Beacon Score Extracted: {beacon}")
-    if liabilities:
-        total_monthly_debt = sum(liab["payment"] for liab in liabilities)
-        st.info(f"🧾 Liabilities Found: {len(liabilities)} with ${total_monthly_debt:,.2f} in monthly obligations")
 
-# === CALCULATIONS ===
-gds, tds = calculate_gds_tds(extracted_income or 0, mortgage_amount * 0.006, property_tax, heat, lease_rent, total_monthly_debt)
+# === CALCULATE RATIOS ===
+total_monthly_debt = sum(l["payment"] for l in liabilities)
+gds, tds = calculate_gds_tds(income or 0, mortgage_amount * 0.006, property_tax, heat, lease_rent, total_monthly_debt)
 ltv = calculate_ltv(purchase_price, mortgage_amount)
 
-# === GENERATE PDF ===
-if st.button("📄 Generate Underwriting Summary PDF"):
-    file_data = {
-        "Beacon Score": beacon,
-        "Income Type": income_type,
-        "Annual Income": f"${extracted_income:,.2f}" if extracted_income else "Not available",
-        "Monthly Rent": f"${lease_rent:,.2f}" if lease_rent else "Not available",
-        "Tenant Info": lease_tenant or "Not found",
-        "Purchase Price": f"${purchase_price:,.2f}",
-        "Mortgage Amount": f"${mortgage_amount:,.2f}",
-        "LTV": f"{ltv:.2f}%" if ltv else "Not available",
-        "GDS": f"{gds:.2f}%" if gds else "Not available",
-        "TDS": f"{tds:.2f}%" if tds else "Not available"
-    }
-    report_path = generate_underwriting_summary(file_data)
-    with open(report_path, "rb") as f:
-        st.download_button("⬇️ Download Underwriting Summary PDF", f, file_name=report_path, mime="application/pdf")
+# === BUILD PDF DATA DICT ===
+file_data = {
+    "broker_name": "Your Brokerage Name",
+    "agent_name": "Agent Full Name",
+    "license_number": "123456",
+
+    "applicant_name": "Client Name",
+    "dob": "YYYY-MM-DD",
+    "marital_status": "Single",
+    "employment_type": "Salaried",
+    "annual_income": f"${income:,.2f}" if income else "Not available",
+
+    "monthly_rent": f"${lease_rent:,.2f}" if lease_rent else "N/A",
+    "liabilities": liabilities,
+
+    "purchase_price": f"${purchase_price:,.2f}",
+    "mortgage_amount": f"${mortgage_amount:,.2f}",
+    "ltv": f"{ltv:.2f}%" if ltv else "N/A",
+
+    "beacon_score": beacon,
+    "gds": gds or "N/A",
+    "tds": tds or "N/A",
+
+    "property_type": property_type,
+    "occupancy": occupancy
+}
+
+# === GENERATE FINAL PDF ===
+if st.button("📄 Generate Filogix-Style Mortgage PDF"):
+    deploy_filogix_pdf_streamlit(file_data)
 
